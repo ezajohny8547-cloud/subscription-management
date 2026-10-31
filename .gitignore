@@ -1,0 +1,21 @@
+# Build targets
+target/
+**/target/
+dist/
+**/dist/
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Local tools and caches
+.tools/
+*.log
+.DS_Store
+
+# IDE and environment files
+.idea/
+*.iml
+.vscode/
+*.env
+*.env.local
