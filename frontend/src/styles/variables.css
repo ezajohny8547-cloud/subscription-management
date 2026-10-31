@@ -1,0 +1,24 @@
+:root {
+  --color-background: #F5EDE0;
+  --color-card: #FFFBF5;
+  --color-secondary-background: #EAD9C3;
+  --color-text-primary: #3B2A1E;
+  --color-text-secondary: #7A5C46;
+  --color-border: #C7AE8F;
+  --color-primary: #6E2A3A;
+  --color-success: #2C4A3B;
+  --color-highlight: #C4972F;
+  --color-secondary-accent: #A9684F;
+  --font-family: 'Inter', sans-serif;
+  --font-size-title: 24px;
+  --font-size-heading: 20px;
+  --font-size-card-heading: 16px;
+  --font-size-body: 14px;
+  --font-size-label: 13px;
+  --font-size-small: 12px;
+  --radius-panel: 12px;
+  --radius-button: 8px;
+  --shadow-subtle: 0 4px 14px rgba(59, 42, 30, 0.08);
+  --shadow-elevated: 0 10px 25px rgba(59, 42, 30, 0.12);
+  --transition-smooth: all 0.2s ease-in-out;
+}
