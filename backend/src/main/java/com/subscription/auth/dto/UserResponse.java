@@ -1,45 +1,49 @@
 package com.subscription.auth.dto;
 
-import com.subscription.auth.model.Role;
-import com.subscription.auth.model.UserStatus;
+import com.subscription.entity.Role;
+import com.subscription.entity.User;
+import com.subscription.entity.UserStatus;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 public class UserResponse {
 
-    private Long userId;
-    private String email;
+    private Long id;
     private String fullName;
+    private String email;
     private Role role;
     private UserStatus status;
-    private Instant createdAt;
+    private LocalDateTime createdAt;
 
     public UserResponse() {
     }
 
-    public UserResponse(Long userId, String email, String fullName, Role role, UserStatus status, Instant createdAt) {
-        this.userId = userId;
-        this.email = email;
+    public UserResponse(Long id, String fullName, String email, Role role, UserStatus status, LocalDateTime createdAt) {
+        this.id = id;
         this.fullName = fullName;
+        this.email = email;
         this.role = role;
         this.status = status;
         this.createdAt = createdAt;
     }
 
-    public Long getUserId() {
-        return userId;
+    public static UserResponse fromUser(User user) {
+        return new UserResponse(
+                user.getId(),
+                user.getFullName(),
+                user.getEmail(),
+                user.getRole(),
+                user.getStatus(),
+                user.getCreatedAt()
+        );
     }
 
-    public void setUserId(Long userId) {
-        this.userId = userId;
+    public Long getId() {
+        return id;
     }
 
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public String getFullName() {
@@ -48,6 +52,14 @@ public class UserResponse {
 
     public void setFullName(String fullName) {
         this.fullName = fullName;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public Role getRole() {
@@ -66,11 +78,11 @@ public class UserResponse {
         this.status = status;
     }
 
-    public Instant getCreatedAt() {
+    public LocalDateTime getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(Instant createdAt) {
+    public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
 }

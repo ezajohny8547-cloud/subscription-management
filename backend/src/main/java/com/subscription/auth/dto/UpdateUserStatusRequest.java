@@ -1,11 +1,11 @@
 package com.subscription.auth.dto;
 
-import com.subscription.auth.model.UserStatus;
+import com.subscription.entity.UserStatus;
 import jakarta.validation.constraints.NotNull;
 
 public class UpdateUserStatusRequest {
 
-    @NotNull(message = "Account status is required")
+    @NotNull(message = "Status is required")
     private UserStatus status;
 
     public UpdateUserStatusRequest() {

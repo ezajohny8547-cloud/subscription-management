@@ -1,25 +1,22 @@
 package com.subscription.auth.dto;
 
-import com.subscription.auth.model.Role;
-
 public class AuthResponse {
 
     private String token;
     private String tokenType = "Bearer";
-    private Long userId;
+    private Long id;
+    private String name;
     private String email;
-    private String fullName;
-    private Role role;
+    private String role;
 
     public AuthResponse() {
     }
 
-    public AuthResponse(String token, Long userId, String email, String fullName, Role role) {
+    public AuthResponse(String token, Long id, String name, String email, String role) {
         this.token = token;
-        this.tokenType = "Bearer";
-        this.userId = userId;
+        this.id = id;
+        this.name = name;
         this.email = email;
-        this.fullName = fullName;
         this.role = role;
     }
 
@@ -39,12 +36,20 @@ public class AuthResponse {
         this.tokenType = tokenType;
     }
 
-    public Long getUserId() {
-        return userId;
+    public Long getId() {
+        return id;
     }
 
-    public void setUserId(Long userId) {
-        this.userId = userId;
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public String getEmail() {
@@ -55,19 +60,11 @@ public class AuthResponse {
         this.email = email;
     }
 
-    public String getFullName() {
-        return fullName;
-    }
-
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
-
-    public Role getRole() {
+    public String getRole() {
         return role;
     }
 
-    public void setRole(Role role) {
+    public void setRole(String role) {
         this.role = role;
     }
 }

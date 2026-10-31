@@ -10,16 +10,22 @@ export const authService = {
    */
   async login(email, password) {
     const response = await apiClient.post('/auth/login', { email, password });
-    if (response?.token) {
-      apiClient.setToken(response.token);
-      localStorage.setItem('user', JSON.stringify({
-        userId: response.userId,
-        email: response.email,
-        fullName: response.fullName,
-        role: response.role
-      }));
+    const payload = response?.data || response;
+    const token = payload?.token;
+    if (token) {
+      apiClient.setToken(token);
+      const userData = {
+        id: payload.id || payload.userId,
+        userId: payload.id || payload.userId,
+        email: payload.email,
+        fullName: payload.name || payload.fullName,
+        name: payload.name || payload.fullName,
+        role: payload.role
+      };
+      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('sms_user', JSON.stringify(userData));
     }
-    return response;
+    return payload;
   },
 
   /**
@@ -40,11 +46,11 @@ export const authService = {
     try {
       await apiClient.post('/auth/logout', {});
     } catch (err) {
-      // Continue client-side cleanup even if network request fails
       console.warn('Backend logout notification warning:', err.message);
     } finally {
       apiClient.setToken(null);
       localStorage.removeItem('user');
+      localStorage.removeItem('sms_user');
     }
   },
 
@@ -69,7 +75,7 @@ export const authService = {
    * Returns current user object from storage, or null if unauthenticated.
    */
   getCurrentUser() {
-    const userStr = localStorage.getItem('user');
+    const userStr = localStorage.getItem('user') || localStorage.getItem('sms_user');
     if (!userStr) return null;
     try {
       return JSON.parse(userStr);

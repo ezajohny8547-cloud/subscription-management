@@ -1,72 +1,165 @@
 package com.subscription.auth.controller;
 
 import com.subscription.auth.dto.*;
-import com.subscription.auth.service.AuthService;
+import com.subscription.common.ApiResponse;
+import com.subscription.entity.PasswordResetToken;
+import com.subscription.entity.Role;
+import com.subscription.entity.User;
+import com.subscription.entity.UserStatus;
+import com.subscription.repository.PasswordResetTokenRepository;
+import com.subscription.repository.UserRepository;
+import com.subscription.security.CurrentUser;
+import com.subscription.security.JwtTokenProvider;
+import com.subscription.security.UserPrincipal;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * Controller handling public authentication workflows.
- */
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    private final AuthService authService;
+    private final AuthenticationManager authenticationManager;
+    private final JwtTokenProvider tokenProvider;
+    private final UserRepository userRepository;
+    private final PasswordResetTokenRepository tokenRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public AuthController(AuthService authService) {
-        this.authService = authService;
+    @Value("${app.jwt.reset-token-expiration-ms:900000}")
+    private long resetTokenExpirationMs;
+
+    public AuthController(AuthenticationManager authenticationManager,
+                          JwtTokenProvider tokenProvider,
+                          UserRepository userRepository,
+                          PasswordResetTokenRepository tokenRepository,
+                          PasswordEncoder passwordEncoder) {
+        this.authenticationManager = authenticationManager;
+        this.tokenProvider = tokenProvider;
+        this.userRepository = userRepository;
+        this.tokenRepository = tokenRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
-    /**
-     * POST /api/auth/register
-     * Register a new customer account.
-     */
-    @PostMapping("/register")
-    public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody RegisterRequest request) {
-        ApiResponse<Void> response = authService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    /**
-     * POST /api/auth/login
-     * Authenticate credentials and return JWT bearer token.
-     */
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
-        AuthResponse response = authService.login(request);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<ApiResponse<AuthResponse>> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        loginRequest.getEmail(),
+                        loginRequest.getPassword()
+                )
+        );
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        String jwt = tokenProvider.generateToken(authentication);
+
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        AuthResponse authResponse = new AuthResponse(
+                jwt,
+                userPrincipal.getId(),
+                userPrincipal.getName(),
+                userPrincipal.getEmail(),
+                userPrincipal.getRole().name()
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("Authentication successful", authResponse));
     }
 
-    /**
-     * POST /api/auth/logout
-     * Acknowledge logout and invalidate security context.
-     */
+    @PostMapping("/register")
+    @Transactional
+    public ResponseEntity<ApiResponse<Void>> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
+        String email = registerRequest.getEmail().trim().toLowerCase();
+        if (userRepository.existsByEmail(email)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("An account with this email address already exists."));
+        }
+
+        User user = new User(
+                registerRequest.getFullName().trim(),
+                email,
+                passwordEncoder.encode(registerRequest.getPassword()),
+                Role.CUSTOMER,
+                UserStatus.ACTIVE
+        );
+        userRepository.save(user);
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Registration successful. Please log in with your credentials.", null));
+    }
+
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout() {
-        ApiResponse<Void> response = authService.logout();
-        return ResponseEntity.ok(response);
+    public ResponseEntity<ApiResponse<Void>> logoutUser() {
+        SecurityContextHolder.clearContext();
+        return ResponseEntity.ok(ApiResponse.success("Successfully logged out", null));
     }
 
-    /**
-     * POST /api/auth/forgot-password
-     * Request password reset instructions and dispatch secure token.
-     */
     @PostMapping("/forgot-password")
+    @Transactional
     public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        ApiResponse<Void> response = authService.forgotPassword(request);
-        return ResponseEntity.ok(response);
+        String email = request.getEmail().trim().toLowerCase();
+        Optional<User> userOpt = userRepository.findByEmail(email);
+
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            tokenRepository.invalidatePreviousUserTokens(user);
+
+            String token = UUID.randomUUID().toString();
+            Instant expiry = Instant.now().plusMillis(resetTokenExpirationMs);
+            tokenRepository.save(new PasswordResetToken(token, user, expiry));
+        }
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "If an account exists with this email, a password reset link has been dispatched.", null));
     }
 
-    /**
-     * POST /api/auth/reset-password
-     * Validate reset token and update user password.
-     */
     @PostMapping("/reset-password")
+    @Transactional
     public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
-        ApiResponse<Void> response = authService.resetPassword(request);
-        return ResponseEntity.ok(response);
+        Optional<PasswordResetToken> tokenOpt = tokenRepository.findByTokenAndUsedFalse(request.getToken().trim());
+        if (tokenOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Invalid or expired reset token."));
+        }
+
+        PasswordResetToken resetToken = tokenOpt.get();
+        if (resetToken.isExpired()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("This password reset token has expired."));
+        }
+
+        User user = resetToken.getUser();
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        resetToken.setUsed(true);
+        tokenRepository.save(resetToken);
+
+        return ResponseEntity.ok(ApiResponse.success("Password has been reset successfully. You can now log in.", null));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<AuthResponse>> getCurrentUser(@CurrentUser UserPrincipal currentUser) {
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Not authenticated"));
+        }
+
+        AuthResponse authResponse = new AuthResponse(
+                null,
+                currentUser.getId(),
+                currentUser.getName(),
+                currentUser.getEmail(),
+                currentUser.getRole().name()
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("Current user profile", authResponse));
     }
 }

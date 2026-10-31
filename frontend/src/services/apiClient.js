@@ -6,7 +6,7 @@
 
 const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL)
   ? import.meta.env.VITE_API_BASE_URL
-  : 'http://localhost:8080/api';
+  : '/api';
 
 class ApiClient {
   constructor(baseUrl) {
@@ -14,14 +14,16 @@ class ApiClient {
   }
 
   getToken() {
-    return localStorage.getItem('token');
+    return localStorage.getItem('token') || localStorage.getItem('sms_auth_token');
   }
 
   setToken(token) {
     if (token) {
       localStorage.setItem('token', token);
+      localStorage.setItem('sms_auth_token', token);
     } else {
       localStorage.removeItem('token');
+      localStorage.removeItem('sms_auth_token');
     }
   }
 
@@ -53,9 +55,9 @@ class ApiClient {
 
     if (!response.ok) {
       if (response.status === 401) {
-        // Token expired or unauthorized; purge local session
         this.setToken(null);
         localStorage.removeItem('user');
+        localStorage.removeItem('sms_user');
       }
 
       const errorMessage = data?.message || data?.error || `Request failed with status ${response.status}`;

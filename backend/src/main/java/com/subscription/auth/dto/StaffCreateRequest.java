@@ -15,7 +15,7 @@ public class StaffCreateRequest {
     @Email(message = "Please provide a valid email address")
     private String email;
 
-    @NotBlank(message = "Temporary password is required")
+    @NotBlank(message = "Password is required")
     @Pattern(
         regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{9,}$",
         message = "Password must contain more than eight characters, an uppercase letter, a lowercase letter, and a special character"
